@@ -98,7 +98,7 @@ library LibRBAC {
 
     function setRoleAdmin(bytes32 _role, bytes32 _admin) internal {
         RBACStorage storage s = getStorage();
-        emit RoleAdminChanged(_role, s.adminRole[_role], _admin);
+        emit RoleAdminChanged(_role, s.roleAdmin[_role], _admin);
         s.roleAdmin[_role] = _admin;
     }
 }
