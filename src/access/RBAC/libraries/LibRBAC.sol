@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.8.30;
+
+/// @title Role-Based Access Control
+/// @author lynett.eth
+library LibRBAC {
+    /// @notice Emitted when a role is granted to a holder
+    event RoleGranted(bytes32 indexed _role, address indexed _holder);
+    /// @notice Emitted when a role is revoked from a holder
+    event RoleRevoked(bytes32 indexed _role, address indexed _holder);
+
+    /// @notice Thrown when granting a role to an address which already holds it
+    /// @param _role Role ID
+    /// @param _receiver Invalid receiver address.
+    error RoleHeld(bytes32 _role, address _receiver);
+
+    /// @notice Thrown when revoking a role from an address which doesn't hold it
+    /// @param _role Role ID
+    /// @param _receiver Invalid receiver address.
+    error RoleNotHeld(bytes32 _role, address _receiver);
+
+    /// @notice Thrown when an account doesn't have a given role
+    /// @param _role Role ID
+    /// @param _receiver Invalid receiver address.
+    error RoleRequired(bytes32 _role, address _receiver);
+
+    /// @dev Storage position constant defined via keccak256 hash of diamond storage identifier.
+    bytes32 constant STORAGE_POSITION = keccak256("compose.rbac");
+
+    /// @custom:storage-location erc8042:compose.rbac
+    /// @notice Storage layout for Role-Based Access Control
+    struct RBACStorage {
+        mapping(bytes32 role => mapping(address owner => bool has)) hasRole;
+    }
+
+    /// @notice Returns the RBAC storage struct from its predefined slot.
+    /// @dev Uses inline assembly to access diamond storage location.
+    /// @return s The storage reference for RBAC state variables.
+    function getStorage() internal pure returns (RBACStorage storage s) {
+        bytes32 position = STORAGE_POSITION;
+        assembly {
+            s.slot := position
+        }
+    }
+
+    function grantRole(bytes32 _role, address _holder) internal {
+        RBACStorage storage s = getStorage();
+        if (s.hasRole[_role][_holder]) revert RoleHeld(_role, _holder);
+        s.hasRole[_role][_holder] = true;
+    }
+
+    function revokeRole(bytes32 _role, address _holder) internal {
+        RBACStorage storage s = getStorage();
+        if (!s.hasRole[_role][_holder]) revert RoleNotHeld(_role, _holder);
+        s.hasRole[_role][_holder] = false;
+    }
+
+    function requireRole(bytes32 _role, address _holder) internal view {
+        if (!getStorage().hasRole[_role][_holder])
+            revert RoleRequired(_role, _holder);
+    }
+
+    function requireRole(bytes32 _role) internal view {
+        if (!getStorage().hasRole[_role][msg.sender])
+            revert RoleRequired(_role, msg.sender);
+    }
+
+    function hasRole(
+        bytes32 _role,
+        address _holder
+    ) internal view returns (bool) {
+        return getStorage().hasRole[_role][_holder];
+    }
+}
