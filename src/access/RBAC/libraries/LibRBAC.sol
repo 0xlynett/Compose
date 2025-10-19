@@ -4,10 +4,19 @@ pragma solidity >=0.8.30;
 /// @title Role-Based Access Control
 /// @author lynett.eth
 library LibRBAC {
+    /// The ID of the default admin role with the ability to edit all other users' roles
+    bytes32 internal constant DEFAULT_ADMIN_ROLE = 0x0;
+
     /// @notice Emitted when a role is granted to a holder
     event RoleGranted(bytes32 indexed _role, address indexed _holder);
     /// @notice Emitted when a role is revoked from a holder
     event RoleRevoked(bytes32 indexed _role, address indexed _holder);
+    /// @notice Emitted when a role admin is changed
+    event RoleAdminChanged(
+        bytes32 indexed role,
+        bytes32 indexed prevAdmin,
+        bytes32 indexed newAdmin
+    );
 
     /// @notice Thrown when granting a role to an address which already holds it
     /// @param _role Role ID
@@ -31,6 +40,7 @@ library LibRBAC {
     /// @notice Storage layout for Role-Based Access Control
     struct RBACStorage {
         mapping(bytes32 role => mapping(address owner => bool has)) hasRole;
+        mapping(bytes32 role => bytes32 admin) roleAdmin;
     }
 
     /// @notice Returns the RBAC storage struct from its predefined slot.
@@ -65,10 +75,30 @@ library LibRBAC {
             revert RoleRequired(_role, msg.sender);
     }
 
+    function requireRoleAdmin(bytes32 _role, address _holder) internal view {
+        if (!hasRole(getRoleAdmin(_role), _holder))
+            revert RoleRequired(_role, _holder);
+    }
+
+    function requireRoleAdmin(bytes32 _role) internal view {
+        if (!hasRole(getRoleAdmin(_role), msg.sender))
+            revert RoleRequired(_role, msg.sender);
+    }
+
     function hasRole(
         bytes32 _role,
         address _holder
     ) internal view returns (bool) {
         return getStorage().hasRole[_role][_holder];
+    }
+
+    function getRoleAdmin(bytes32 _role) internal view returns (bytes32) {
+        return getStorage().roleAdmin[_role];
+    }
+
+    function setRoleAdmin(bytes32 _role, bytes32 _admin) internal {
+        RBACStorage storage s = getStorage();
+        emit RoleAdminChanged(_role, s.adminRole[_role], _admin);
+        s.roleAdmin[_role] = _admin;
     }
 }
